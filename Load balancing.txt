@@ -9,17 +9,17 @@ upstream nginx{
 
 #ip hash 使用hash算法来决定下一个请求要选择哪个服务器
 upstream nginx {
+	ip_hash;
         server 192.168.0.100:8080;
-        server 192.168.0.101:8080 backup;
-        ip_hash;
+        server 192.168.0.101:8080 backup;  
     }
 
 # 最少连接（least_conn)下一个请求将被分派到活动连接数量最少的服务器
 upstream nginx {
+    least_conn;
     server 192.168.0.100:8080;
     server 192.168.0.101:8080;
     server 192.168.0.102:8080;
-        least_conn;
     }
 # 使用fair负载策略模块
 upstream nginx {
@@ -30,10 +30,10 @@ upstream nginx {
 }
 # url_hash 按请求url的hash结果来分配请求，使每个url定向到同一个后端服务器，服务器做缓存时比较有效。
 upstream nginx {
+    hash $request_uri;
     server 192.168.0.100:8080;
     server 192.168.0.101:8080;
     server 192.168.0.102:8080;
-    hash $request_uri;
 }
 #weight=1; (weight 默认为1.weight越大，负载的权重就越大)
 #down; (down 表示单前的server暂时不参与负载)
