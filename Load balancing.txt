@@ -1,0 +1,86 @@
+proxy_cache_path /data/proxy_cache/nginx levels=1:2 keys_zone=nginx:200m inactive=30m max_size=2g use_temp_path=off;
+
+
+# 轮询策略 到应用服务器的请求以round-robin/轮询的方式被分发
+upstream nginx{  
+        server 192.168.0.100:8080 weight=1 fail_timeout=20s;
+        server 192.168.0.101:8080 weight=1 fail_timeout=20s;
+}
+
+#ip hash 使用hash算法来决定下一个请求要选择哪个服务器
+upstream nginx {
+        server 192.168.0.100:8080;
+        server 192.168.0.101:8080 backup;
+        ip_hash;
+    }
+
+# 最少连接（least_conn)下一个请求将被分派到活动连接数量最少的服务器
+upstream nginx {
+    server 192.168.0.100:8080;
+    server 192.168.0.101:8080;
+    server 192.168.0.102:8080;
+        least_conn;
+    }
+# 使用fair负载策略模块
+upstream nginx {
+    fair;
+    server 192.168.0.100:8080;
+    server 192.168.0.101:8080;
+    server 192.168.0.102:8080;
+}
+# url_hash 按请求url的hash结果来分配请求，使每个url定向到同一个后端服务器，服务器做缓存时比较有效。
+upstream nginx {
+    server 192.168.0.100:8080;
+    server 192.168.0.101:8080;
+    server 192.168.0.102:8080;
+    hash $request_uri;
+}
+#weight=1; (weight 默认为1.weight越大，负载的权重就越大)
+#down; (down 表示单前的server暂时不参与负载)
+#backup; (其它所有的非backup机器down或者忙的时候，请求backup机器)
+#max_fails ：允许请求失败的次数默认为1.当超过最大次数时，返回proxy_next_upstream 模块定义的错误
+#fail_timeout:max_fails次失败后，暂停的时间
+server {
+    listen       80;
+    server_name  nginx.con *.nginx.con;
+    location / {
+        index index.html index.htm index.shtml;
+        proxy_redirect off;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Cookie $http_cookie;
+		proxy_hide_header X-Powered-By;
+        proxy_cookie_domain domino.server nginx.server;
+        proxy_set_header Connection "Keep-Alive";
+        proxy_set_header X-Forwarded-For  $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_cache nginx;
+        proxy_cache_lock on;
+        proxy_cache_revalidate on;
+        proxy_cache_methods GET POST;
+        proxy_cache_key    $host$uri$query_string;
+        proxy_cache_valid  200 304  60m;
+        proxy_cache_valid  301 10m;
+        proxy_cache_valid  500 502 503 504 0s;
+        proxy_cache_valid any 1s;
+        proxy_cache_min_uses 1;
+        proxy_headers_hash_max_size 51200;
+        proxy_headers_hash_bucket_size 6400;
+
+        proxy_pass http://nginx;
+    }
+    location ~ .*\.(php|jsp|cgi|asp|aspx|flv|swf|xml|py)?$ {
+        proxy_set_header Host  $host;
+        proxy_set_header X-Forwarded-For  $remote_addr;
+        proxy_buffering on;
+        proxy_buffers 4 4k;
+        proxy_busy_buffers_size 8k;
+        proxy_max_temp_file_size 1024m;
+        proxy_pass http://nginx;
+    }
+    access_log     /data/proxy_logs/nginx.log;
+}
+
+
+
+
